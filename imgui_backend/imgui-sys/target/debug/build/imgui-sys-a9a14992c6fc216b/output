@@ -1,0 +1,6 @@
+cargo:THIRD_PARTY=/home/erick/poly/rust/test/self_test_imgui_rust/imgui-sys/third-party
+cargo:DEFINE_IMGUI_USE_WCHAR32=
+cargo:DEFINE_CIMGUI_NO_EXPORT=
+cargo:DEFINE_IMGUI_DISABLE_WIN32_FUNCTIONS=
+cargo:DEFINE_IMGUI_DISABLE_OSX_FUNCTIONS=
+cargo:THIRD_PARTY=/home/erick/poly/rust/test/self_test_imgui_rust/imgui-sys/third-party/imgui-docking-freetype

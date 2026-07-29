@@ -5,4 +5,10 @@ edition = "2024"
 
 [dependencies]
 enigo = "0.6.1"
+copypasta = "0.10.2"
+glium = { version = "0.34.0", default-features = true }
+imgui = { path = "imgui_backend/imgui", features = ["docking"] }
+imgui-glium-renderer = { path = "imgui_backend/imgui-glium-renderer"}
+imgui-winit-support = { path = "imgui_backend/imgui-winit-support" }
+rfd = "0.17.2"
 
