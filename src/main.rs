@@ -1,6 +1,8 @@
 mod support;
 
 use enigo::{Coordinate, Enigo, Mouse, Settings as EnigoSettings};
+use std::fs;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
@@ -22,6 +24,61 @@ impl Default for SharedSettings {
       move_pixels: AtomicI32::new(10),
       interval_secs: AtomicU64::new(60),
       running: AtomicBool::new(true),
+    }
+  }
+}
+
+fn settings_path() -> PathBuf {
+  let mut path = std::env::current_exe()
+    .ok()
+    .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+    .unwrap_or_else(|| PathBuf::from("."));
+  path.push("cursor_mover_settings.cfg");
+  path
+}
+
+impl SharedSettings {
+  // loads from disk if a config file exists, falling back to defaults for
+  // any field that's missing or unparsable.
+  fn load() -> Self {
+    let settings = Self::default();
+    if let Ok(contents) = fs::read_to_string(settings_path()) {
+      for line in contents.lines() {
+        if let Some((key, value)) = line.split_once('=') {
+          let value = value.trim();
+          match key.trim() {
+            "move_pixels" => {
+              if let Ok(v) = value.parse::<i32>() {
+                settings.move_pixels.store(v, Ordering::Relaxed);
+              }
+            }
+            "interval_secs" => {
+              if let Ok(v) = value.parse::<u64>() {
+                settings.interval_secs.store(v, Ordering::Relaxed);
+              }
+            }
+            "running" => {
+              if let Ok(v) = value.parse::<bool>() {
+                settings.running.store(v, Ordering::Relaxed);
+              }
+            }
+            _ => {}
+          }
+        }
+      }
+    }
+    settings
+  }
+
+  fn save(&self) {
+    let contents = format!(
+      "move_pixels={}\ninterval_secs={}\nrunning={}\n",
+      self.move_pixels.load(Ordering::Relaxed),
+      self.interval_secs.load(Ordering::Relaxed),
+      self.running.load(Ordering::Relaxed),
+    );
+    if let Err(e) = fs::write(settings_path(), contents) {
+      eprintln!("[warn] Failed to save settings: {e}");
     }
   }
 }
@@ -63,7 +120,7 @@ fn spawn_jiggler(settings: Arc<SharedSettings>, log_tx: Sender<String>) {
 fn main() {
   let system = support::init(file!());
 
-  let settings = Arc::new(SharedSettings::default());
+  let settings = Arc::new(SharedSettings::load());
   let (log_tx, log_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
 
   spawn_jiggler(settings.clone(), log_tx.clone());
@@ -113,12 +170,14 @@ fn main() {
         settings
           .interval_secs
           .store(interval_input as u64, Ordering::Relaxed);
+        settings.save();
         }
 
       ui.separator();
 
       if ui.button(if is_running { "Pause" } else { "Resume" }) {
         settings.running.store(!is_running, Ordering::Relaxed);
+        settings.save();
       }
       ui.same_line();
       if ui.button("Clear log") {
@@ -140,8 +199,11 @@ fn main() {
       let bg_token =
         ui.push_style_color(imgui::StyleColor::ChildBg, [0.05, 0.05, 0.05, 1.0]);
 
+      let pad_token = ui.push_style_var(imgui::StyleVar::WindowPadding([10.0, 10.0]));
+
       ui.child_window("console_output")
         .size([0.0, 0.0])
+        .always_use_window_padding(true)
         .build(|| {
           for line in &log_lines {
             ui.text_colored([0.4, 0.9, 0.4, 1.0], line);
@@ -151,6 +213,7 @@ fn main() {
           }
         });
 
+      pad_token.pop();
       bg_token.pop();
     });
 
