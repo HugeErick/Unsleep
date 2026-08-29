@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 mod support;
 
 use enigo::{Coordinate, Enigo, Mouse, Settings as EnigoSettings};
